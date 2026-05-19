@@ -1,0 +1,372 @@
+// ============================================================
+// PROJECT 2: PHARMACEUTICAL SALES DASHBOARD
+// All DAX Measures — Paste into Power BI DAX Editor
+// ============================================================
+
+
+// ─────────────────────────────────────────
+// 1. CORE SALES MEASURES
+// ─────────────────────────────────────────
+
+Total Revenue =
+SUMX(fact_pharma_sales, fact_pharma_sales[Revenue])
+
+Total COGS =
+SUMX(fact_pharma_sales, fact_pharma_sales[COGS])
+
+Gross Profit =
+[Total Revenue] - [Total COGS]
+
+Gross Profit Margin % =
+DIVIDE([Gross Profit], [Total Revenue], 0) * 100
+
+Total Units Sold =
+SUM(fact_pharma_sales[Quantity])
+
+Total Prescriptions =
+COUNTROWS(fact_pharma_sales)
+
+Avg Revenue Per Prescription =
+DIVIDE([Total Revenue], [Total Prescriptions], 0)
+
+
+// ─────────────────────────────────────────
+// 2. DRUG TYPE ANALYSIS
+// ─────────────────────────────────────────
+
+Rx Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_drugs[PrescriptionType] = "Rx"
+)
+
+OTC Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_drugs[PrescriptionType] = "OTC"
+)
+
+Rx Revenue % =
+DIVIDE([Rx Revenue], [Total Revenue], 0) * 100
+
+OTC Revenue % =
+DIVIDE([OTC Revenue], [Total Revenue], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 3. TIME INTELLIGENCE
+// ─────────────────────────────────────────
+
+Revenue YTD =
+TOTALYTD([Total Revenue], dim_date[Date])
+
+Revenue MTD =
+TOTALMTD([Total Revenue], dim_date[Date])
+
+Revenue QTD =
+TOTALQTD([Total Revenue], dim_date[Date])
+
+Revenue PY =
+CALCULATE(
+    [Total Revenue],
+    SAMEPERIODLASTYEAR(dim_date[Date])
+)
+
+Revenue YoY % =
+DIVIDE([Total Revenue] - [Revenue PY], [Revenue PY], 0) * 100
+
+Revenue YoY Label =
+VAR Pct = [Revenue YoY %]
+RETURN
+    IF(
+        ISBLANK([Revenue PY]),
+        "No Prior Year",
+        IF(Pct >= 0,
+            "▲ " & FORMAT(ABS(Pct), "0.0") & "%",
+            "▼ " & FORMAT(ABS(Pct), "0.0") & "%"
+        )
+    )
+
+Revenue LM =
+CALCULATE(
+    [Total Revenue],
+    PREVIOUSMONTH(dim_date[Date])
+)
+
+Revenue MoM % =
+DIVIDE([Total Revenue] - [Revenue LM], [Revenue LM], 0) * 100
+
+Revenue Rolling 3M =
+CALCULATE(
+    [Total Revenue],
+    DATESINPERIOD(
+        dim_date[Date],
+        LASTDATE(dim_date[Date]),
+        -3,
+        MONTH
+    )
+)
+
+Revenue Rolling 12M =
+CALCULATE(
+    [Total Revenue],
+    DATESINPERIOD(
+        dim_date[Date],
+        LASTDATE(dim_date[Date]),
+        -12,
+        MONTH
+    )
+)
+
+
+// ─────────────────────────────────────────
+// 4. SALES REP PERFORMANCE
+// ─────────────────────────────────────────
+
+Total Target =
+SUMX(
+    fact_rep_targets,
+    fact_rep_targets[SalesTarget]
+)
+
+Target Achievement % =
+DIVIDE([Total Revenue], [Total Target], 0) * 100
+
+Reps Above Target =
+CALCULATE(
+    DISTINCTCOUNT(fact_pharma_sales[RepID]),
+    FILTER(
+        VALUES(fact_pharma_sales[RepID]),
+        [Target Achievement %] >= 100
+    )
+)
+
+Reps Below Target =
+CALCULATE(
+    DISTINCTCOUNT(fact_pharma_sales[RepID]),
+    FILTER(
+        VALUES(fact_pharma_sales[RepID]),
+        [Target Achievement %] < 100
+    )
+)
+
+Avg Revenue Per Rep =
+DIVIDE(
+    [Total Revenue],
+    DISTINCTCOUNT(fact_pharma_sales[RepID]),
+    0
+)
+
+Rep Revenue Rank =
+RANKX(
+    ALLSELECTED(dim_sales_reps[RepCode]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+Top Rep Revenue =
+MAXX(
+    ALLSELECTED(dim_sales_reps[RepCode]),
+    CALCULATE([Total Revenue])
+)
+
+Target Gap =
+[Total Target] - [Total Revenue]
+
+Target Status =
+IF(
+    [Target Achievement %] >= 100,
+    "✅ On Target",
+    IF(
+        [Target Achievement %] >= 80,
+        "⚠️ Near Target",
+        "❌ Below Target"
+    )
+)
+
+
+// ─────────────────────────────────────────
+// 5. DOCTOR & THERAPEUTIC ANALYTICS
+// ─────────────────────────────────────────
+
+Unique Doctors =
+DISTINCTCOUNT(fact_pharma_sales[DoctorID])
+
+Revenue Per Doctor =
+DIVIDE([Total Revenue], [Unique Doctors], 0)
+
+Top Doctor Revenue =
+MAXX(
+    ALLSELECTED(dim_doctors[DoctorCode]),
+    CALCULATE([Total Revenue])
+)
+
+Doctor Revenue Rank =
+RANKX(
+    ALLSELECTED(dim_doctors[DoctorCode]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+Therapeutic Area Revenue % =
+DIVIDE(
+    [Total Revenue],
+    CALCULATE([Total Revenue], ALLSELECTED(dim_drugs[TherapeuticArea])),
+    0
+) * 100
+
+Cardiac Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_drugs[TherapeuticArea] = "Cardiac"
+)
+
+Antidiabetic Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_drugs[TherapeuticArea] = "Antidiabetic"
+)
+
+
+// ─────────────────────────────────────────
+// 6. CHANNEL PERFORMANCE
+// ─────────────────────────────────────────
+
+Hospital Pharmacy Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_pharma_sales[Channel] = "Hospital Pharmacy"
+)
+
+Retail Pharmacy Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_pharma_sales[Channel] = "Retail Pharmacy"
+)
+
+Online Pharmacy Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_pharma_sales[Channel] = "Online Pharmacy"
+)
+
+Online Channel % =
+DIVIDE([Online Pharmacy Revenue], [Total Revenue], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 7. DISCOUNT & MARGIN ANALYSIS
+// ─────────────────────────────────────────
+
+Total Discount Amount =
+SUMX(
+    fact_pharma_sales,
+    fact_pharma_sales[ListPrice] * fact_pharma_sales[DiscountPct] / 100 * fact_pharma_sales[Quantity]
+)
+
+Effective Discount Rate % =
+DIVIDE([Total Discount Amount],
+    SUMX(fact_pharma_sales, fact_pharma_sales[ListPrice] * fact_pharma_sales[Quantity]),
+    0
+) * 100
+
+Revenue At List Price =
+SUMX(
+    fact_pharma_sales,
+    fact_pharma_sales[ListPrice] * fact_pharma_sales[Quantity]
+)
+
+Margin After Discount % =
+DIVIDE([Gross Profit], [Revenue At List Price], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 8. GEOGRAPHIC ANALYSIS
+// ─────────────────────────────────────────
+
+Region Revenue Rank =
+RANKX(
+    ALLSELECTED(dim_doctors[Region]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+South Region Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_doctors[Region] = "South"
+)
+
+North Region Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_doctors[Region] = "North"
+)
+
+West Region Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_doctors[Region] = "West"
+)
+
+East Region Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_doctors[Region] = "East"
+)
+
+
+// ─────────────────────────────────────────
+// 9. DRUG PERFORMANCE
+// ─────────────────────────────────────────
+
+Drug Revenue Rank =
+RANKX(
+    ALLSELECTED(dim_drugs[DrugName]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+Top 5 Drugs Revenue =
+CALCULATE(
+    [Total Revenue],
+    TOPN(5, ALLSELECTED(dim_drugs[DrugName]), [Total Revenue])
+)
+
+Manufacturer Revenue % =
+DIVIDE(
+    [Total Revenue],
+    CALCULATE([Total Revenue], ALLSELECTED(dim_drugs[Manufacturer])),
+    0
+) * 100
+
+
+// ─────────────────────────────────────────
+// 10. DYNAMIC KPI & FORMATTING
+// ─────────────────────────────────────────
+
+KPI Color Target =
+IF([Target Achievement %] >= 100, "#22c55e",
+   IF([Target Achievement %] >= 80, "#f59e0b", "#ef4444"))
+
+Revenue In Lakhs =
+DIVIDE([Total Revenue], 100000)
+
+Revenue In Crores =
+DIVIDE([Total Revenue], 10000000)
+
+Revenue Formatted =
+VAR Rev = [Total Revenue]
+RETURN
+    IF(Rev >= 10000000,
+        FORMAT(Rev/10000000, "0.00") & " Cr",
+        FORMAT(Rev/100000, "0.00") & " L"
+    )

@@ -1,0 +1,286 @@
+// ============================================================
+// PROJECT 1: SUPERMARKET SALES DASHBOARD
+// All DAX Measures — Paste into Power BI DAX Editor
+// Table: Measures (create an empty calculated table)
+// ============================================================
+
+
+// ─────────────────────────────────────────
+// 1. BASIC REVENUE & VOLUME MEASURES
+// ─────────────────────────────────────────
+
+Total Revenue =
+SUMX(fact_sales, fact_sales[Revenue])
+
+Total COGS =
+SUMX(fact_sales, fact_sales[COGS])
+
+Gross Profit =
+[Total Revenue] - [Total COGS]
+
+Gross Profit Margin % =
+DIVIDE([Gross Profit], [Total Revenue], 0) * 100
+
+Total Units Sold =
+SUM(fact_sales[Quantity])
+
+Total Transactions =
+COUNTROWS(fact_sales)
+
+Average Order Value =
+DIVIDE([Total Revenue], [Total Transactions], 0)
+
+Average Units Per Transaction =
+DIVIDE([Total Units Sold], [Total Transactions], 0)
+
+
+// ─────────────────────────────────────────
+// 2. DISCOUNT ANALYSIS
+// ─────────────────────────────────────────
+
+Total Discount Amount =
+SUMX(
+    fact_sales,
+    fact_sales[ListPrice] * fact_sales[DiscountPct] / 100 * fact_sales[Quantity]
+)
+
+Discount Rate % =
+DIVIDE([Total Discount Amount], SUMX(fact_sales, fact_sales[ListPrice] * fact_sales[Quantity]), 0) * 100
+
+Transactions With Discount =
+CALCULATE(
+    COUNTROWS(fact_sales),
+    fact_sales[DiscountPct] > 0
+)
+
+Discount Penetration % =
+DIVIDE([Transactions With Discount], [Total Transactions], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 3. TIME INTELLIGENCE — YTD / MTD / QTD
+// ─────────────────────────────────────────
+
+Revenue YTD =
+TOTALYTD([Total Revenue], dim_date[Date])
+
+Revenue MTD =
+TOTALMTD([Total Revenue], dim_date[Date])
+
+Revenue QTD =
+TOTALQTD([Total Revenue], dim_date[Date])
+
+COGS YTD =
+TOTALYTD([Total COGS], dim_date[Date])
+
+Gross Profit YTD =
+TOTALYTD([Gross Profit], dim_date[Date])
+
+
+// ─────────────────────────────────────────
+// 4. PERIOD-OVER-PERIOD COMPARISON
+// ─────────────────────────────────────────
+
+Revenue PY =
+CALCULATE(
+    [Total Revenue],
+    SAMEPERIODLASTYEAR(dim_date[Date])
+)
+
+Revenue YoY Change =
+[Total Revenue] - [Revenue PY]
+
+Revenue YoY % =
+DIVIDE([Revenue YoY Change], [Revenue PY], 0) * 100
+
+Revenue YoY Label =
+VAR Pct = [Revenue YoY %]
+RETURN
+    IF(
+        ISBLANK([Revenue PY]),
+        "No Prior Year",
+        IF(Pct >= 0,
+            "▲ " & FORMAT(ABS(Pct), "0.0") & "%",
+            "▼ " & FORMAT(ABS(Pct), "0.0") & "%"
+        )
+    )
+
+Gross Profit PY =
+CALCULATE(
+    [Gross Profit],
+    SAMEPERIODLASTYEAR(dim_date[Date])
+)
+
+Gross Profit YoY % =
+DIVIDE([Gross Profit] - [Gross Profit PY], [Gross Profit PY], 0) * 100
+
+Revenue LM =
+CALCULATE(
+    [Total Revenue],
+    PREVIOUSMONTH(dim_date[Date])
+)
+
+Revenue MoM % =
+DIVIDE([Total Revenue] - [Revenue LM], [Revenue LM], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 5. STORE PERFORMANCE
+// ─────────────────────────────────────────
+
+Revenue Per Sqft =
+DIVIDE(
+    [Total Revenue],
+    SELECTEDVALUE(dim_stores[StoreAreaSqFt]),
+    0
+)
+
+Avg Revenue Per Store =
+DIVIDE(
+    [Total Revenue],
+    DISTINCTCOUNT(fact_sales[StoreID]),
+    0
+)
+
+Top Store Revenue =
+MAXX(
+    ALLSELECTED(dim_stores[StoreName]),
+    CALCULATE([Total Revenue])
+)
+
+Store Rank By Revenue =
+RANKX(
+    ALLSELECTED(dim_stores[StoreName]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+
+// ─────────────────────────────────────────
+// 6. PRODUCT & CATEGORY ANALYSIS
+// ─────────────────────────────────────────
+
+Category Revenue Share % =
+DIVIDE(
+    [Total Revenue],
+    CALCULATE([Total Revenue], ALLSELECTED(dim_products[Category])),
+    0
+) * 100
+
+Product Revenue Rank =
+RANKX(
+    ALLSELECTED(dim_products[ProductName]),
+    [Total Revenue],
+    ,
+    DESC,
+    DENSE
+)
+
+Top 10 Products Revenue =
+CALCULATE(
+    [Total Revenue],
+    TOPN(
+        10,
+        ALLSELECTED(dim_products[ProductName]),
+        [Total Revenue]
+    )
+)
+
+Brand Revenue Share % =
+DIVIDE(
+    [Total Revenue],
+    CALCULATE([Total Revenue], ALLSELECTED(dim_products[Brand])),
+    0
+) * 100
+
+
+// ─────────────────────────────────────────
+// 7. CUSTOMER ANALYTICS
+// ─────────────────────────────────────────
+
+Unique Customers =
+DISTINCTCOUNT(fact_sales[CustomerID])
+
+Revenue Per Customer =
+DIVIDE([Total Revenue], [Unique Customers], 0)
+
+Avg Transactions Per Customer =
+DIVIDE([Total Transactions], [Unique Customers], 0)
+
+Premium Customer Revenue =
+CALCULATE(
+    [Total Revenue],
+    dim_customers[Segment] = "Premium"
+)
+
+Premium Customer Share % =
+DIVIDE([Premium Customer Revenue], [Total Revenue], 0) * 100
+
+
+// ─────────────────────────────────────────
+// 8. CHANNEL ANALYSIS
+// ─────────────────────────────────────────
+
+Online Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_sales[Channel] = "Online"
+)
+
+Online Revenue % =
+DIVIDE([Online Revenue], [Total Revenue], 0) * 100
+
+InStore Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_sales[Channel] = "In-Store"
+)
+
+Click And Collect Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_sales[Channel] = "Click & Collect"
+)
+
+
+// ─────────────────────────────────────────
+// 9. PROMOTION EFFECTIVENESS
+// ─────────────────────────────────────────
+
+Promo Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_sales[Promotion] <> "None"
+)
+
+Non Promo Revenue =
+CALCULATE(
+    [Total Revenue],
+    fact_sales[Promotion] = "None"
+)
+
+Promo Revenue Share % =
+DIVIDE([Promo Revenue], [Total Revenue], 0) * 100
+
+Avg Revenue Per Promo Transaction =
+DIVIDE(
+    [Promo Revenue],
+    CALCULATE([Total Transactions], fact_sales[Promotion] <> "None"),
+    0
+)
+
+
+// ─────────────────────────────────────────
+// 10. DYNAMIC KPI CARD MEASURES
+// ─────────────────────────────────────────
+
+KPI Revenue Trend Color =
+IF([Revenue YoY %] >= 0, "#22c55e", "#ef4444")
+
+Selected Period Label =
+VAR MinDate = MIN(dim_date[Date])
+VAR MaxDate = MAX(dim_date[Date])
+RETURN
+    FORMAT(MinDate, "DD MMM YYYY") & " – " & FORMAT(MaxDate, "DD MMM YYYY")
