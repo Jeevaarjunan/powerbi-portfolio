@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📊 Power BI Portfolio Projects
 
 > Two end-to-end Power BI projects built from scratch — including synthetic data generation, Power Query cleaning, star schema modelling, DAX measures, and multi-page dashboards.
@@ -125,3 +126,6 @@ These projects mirror the kind of dashboards used in actual retail and pharmaceu
 ---
 
 *Tools used: Power BI Desktop, Python (data generation), CSV*
+=======
+# powerbi-portfolio
+>>>>>>> 948a48624a5862ecb9eba17880a1a74a2284a488
